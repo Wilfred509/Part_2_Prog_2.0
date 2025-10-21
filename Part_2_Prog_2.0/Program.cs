@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 // Enum for food groups
@@ -11,7 +11,7 @@ enum FoodGroup
     Vegetable
 }
 
-// Ingredient class representing an ingredient with name, calories, and food group
+// Ingredient class
 class Ingredient
 {
     public string Name { get; set; }
@@ -19,7 +19,7 @@ class Ingredient
     public FoodGroup FoodGroup { get; set; }
 }
 
-// Recipe class representing a recipe with name, ingredients, and steps
+// Recipe class
 class Recipe
 {
     public string Name { get; set; }
@@ -37,52 +37,80 @@ class Recipe
     }
 }
 
-// RecipeManager class responsible for managing recipes
+// RecipeManager class
 class RecipeManager
 {
     private List<Recipe> recipes = new List<Recipe>();
 
-    // Event delegate to notify when recipe exceeds 300 calories
     public delegate void RecipeCaloriesExceededHandler(Recipe recipe);
-
-    // Event to be raised when recipe exceeds 300 calories
     public event RecipeCaloriesExceededHandler RecipeCaloriesExceeded;
 
     public void AddRecipe()
     {
         Recipe recipe = new Recipe();
 
-        Console.WriteLine("Enter recipe name:");
+        Console.Write("Enter recipe name: ");
         recipe.Name = Console.ReadLine();
 
+        // Check for duplicate name
+        if (recipes.Exists(r => r.Name.Equals(recipe.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            Console.WriteLine("A recipe with this name already exists. Try another name.");
+            return;
+        }
+
         recipe.Ingredients = new List<Ingredient>();
-        Console.WriteLine("Enter ingredients for the recipe (press Enter to finish):");
+        Console.WriteLine("\nEnter ingredients for the recipe (press Enter to finish):");
         while (true)
         {
-            Ingredient ingredient = new Ingredient();
-
-            Console.WriteLine("Enter ingredient name:");
-            ingredient.Name = Console.ReadLine();
-
-            if (string.IsNullOrEmpty(ingredient.Name))
+            Console.Write("Enter ingredient name: ");
+            string name = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(name))
                 break;
 
-            Console.WriteLine("Enter calories for the ingredient:");
-            ingredient.Calories = int.Parse(Console.ReadLine());
+            Ingredient ingredient = new Ingredient { Name = name };
 
-            Console.WriteLine("Enter food group for the ingredient (Dairy, Fruit, Grain, Protein, Vegetable):");
-            ingredient.FoodGroup = Enum.Parse<FoodGroup>(Console.ReadLine(), ignoreCase: true);
+            // Input validation for calories
+            int calories;
+            while (true)
+            {
+                Console.Write("Enter calories: ");
+                if (int.TryParse(Console.ReadLine(), out calories) && calories >= 0)
+                {
+                    ingredient.Calories = calories;
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Invalid input. Please enter a positive number.");
+                }
+            }
+
+            // Input validation for food group
+            while (true)
+            {
+                Console.Write("Enter food group (Dairy, Fruit, Grain, Protein, Vegetable): ");
+                if (Enum.TryParse<FoodGroup>(Console.ReadLine(), true, out var foodGroup))
+                {
+                    ingredient.FoodGroup = foodGroup;
+                    break;
+                }
+                else
+                {
+                    Console.WriteLine("Invalid food group. Try again.");
+                }
+            }
 
             recipe.Ingredients.Add(ingredient);
         }
 
         recipe.Steps = new List<string>();
-        Console.WriteLine("Enter recipe steps (press Enter to finish):");
+        Console.WriteLine("\nEnter recipe steps (press Enter to finish):");
         while (true)
         {
+            Console.Write("Step: ");
             string step = Console.ReadLine();
-
-            if (string.IsNullOrEmpty(step))
+            if (string.IsNullOrWhiteSpace(step))
                 break;
 
             recipe.Steps.Add(step);
@@ -90,41 +118,50 @@ class RecipeManager
 
         recipes.Add(recipe);
 
-        if (recipe.GetTotalCalories() > 300)
+        int totalCalories = recipe.GetTotalCalories();
+        if (totalCalories > 300)
         {
-            // Raise the RecipeCaloriesExceeded event
             RecipeCaloriesExceeded?.Invoke(recipe);
         }
+
+        Console.WriteLine($"\nRecipe '{recipe.Name}' added successfully! Total Calories: {totalCalories}");
     }
 
     public void DisplayRecipes()
     {
+        if (recipes.Count == 0)
+        {
+            Console.WriteLine("No recipes to display.");
+            return;
+        }
+
         recipes.Sort((r1, r2) => r1.Name.CompareTo(r2.Name));
+        Console.WriteLine("\n--- All Recipes ---");
         foreach (var recipe in recipes)
         {
-            Console.WriteLine(recipe.Name);
+            Console.WriteLine("- " + recipe.Name);
         }
     }
 
     public void DisplayRecipe(string recipeName)
     {
-        Recipe recipe = recipes.Find(r => r.Name == recipeName);
+        Recipe recipe = recipes.Find(r => r.Name.Equals(recipeName, StringComparison.OrdinalIgnoreCase));
         if (recipe != null)
         {
-            Console.WriteLine("Recipe Name: " + recipe.Name);
+            Console.WriteLine($"\n--- {recipe.Name} ---");
             Console.WriteLine("Ingredients:");
             foreach (var ingredient in recipe.Ingredients)
             {
-                Console.WriteLine("Name: " + ingredient.Name);
-                Console.WriteLine("Calories: " + ingredient.Calories);
-                Console.WriteLine("Food Group: " + ingredient.FoodGroup);
+                Console.WriteLine($"- {ingredient.Name} ({ingredient.Calories} cal, {ingredient.FoodGroup})");
             }
-            Console.WriteLine("Steps:");
-            foreach (var step in recipe.Steps)
+
+            Console.WriteLine("\nSteps:");
+            for (int i = 0; i < recipe.Steps.Count; i++)
             {
-                Console.WriteLine(step);
+                Console.WriteLine($"{i + 1}. {recipe.Steps[i]}");
             }
-            Console.WriteLine("Total Calories: " + recipe.GetTotalCalories());
+
+            Console.WriteLine($"\nTotal Calories: {recipe.GetTotalCalories()}");
         }
         else
         {
@@ -136,21 +173,19 @@ class RecipeManager
 // Main program
 class Program
 {
-    static void Main(string[] args)
+    static void Main()
     {
         RecipeManager recipeManager = new RecipeManager();
-
-        // Subscribe to the RecipeCaloriesExceeded event
         recipeManager.RecipeCaloriesExceeded += RecipeCaloriesExceededHandler;
 
         while (true)
         {
-            Console.WriteLine("Select an option:");
+            Console.WriteLine("\n--- Recipe Manager ---");
             Console.WriteLine("1. Add a recipe");
             Console.WriteLine("2. Display all recipes");
             Console.WriteLine("3. Display a recipe");
             Console.WriteLine("4. Exit");
-
+            Console.Write("Choose an option (1-4): ");
             string option = Console.ReadLine();
 
             switch (option)
@@ -162,14 +197,15 @@ class Program
                     recipeManager.DisplayRecipes();
                     break;
                 case "3":
-                    Console.WriteLine("Enter recipe name:");
+                    Console.Write("Enter recipe name: ");
                     string recipeName = Console.ReadLine();
                     recipeManager.DisplayRecipe(recipeName);
                     break;
                 case "4":
+                    Console.WriteLine("Exiting...");
                     return;
                 default:
-                    Console.WriteLine("Invalid option.");
+                    Console.WriteLine("Invalid option. Please select from 1 to 4.");
                     break;
             }
         }
@@ -177,6 +213,6 @@ class Program
 
     static void RecipeCaloriesExceededHandler(Recipe recipe)
     {
-        Console.WriteLine("Warning: The total calories of recipe '" + recipe.Name + "' exceed 300.");
+        Console.WriteLine($"\n⚠️ Warning: The total calories of recipe '{recipe.Name}' exceed 300.");
     }
 }
